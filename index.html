@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FRAP - Ambulancias Santa Cruz</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <style>
+        :root { --naranja: #FF9800; --verde: #4CAF50; --rojo: #D32F2F; --azul: #2196F3; --gris: #666; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eee; margin: 0; padding: 0; }
+        #frap-form { background: white; max-width: 850px; margin: auto; padding-bottom: 20px; overflow: visible !important; }
+        .no-pdf { display: block; }
+        .titulo-principal { background: var(--naranja); color: white; text-align: center; padding: 15px; font-weight: bold; font-size: 20px; }
+        
+        #pdf-header { display: none; padding: 10px; border-bottom: 2px solid var(--rojo); }
+        .h-table { width: 100%; border-collapse: collapse; text-align: center; }
+        
+        details { border-bottom: 1px solid #ddd; }
+        summary { padding: 15px; cursor: pointer; font-weight: bold; color: white; background: var(--verde); }
+        details:nth-child(even) summary { background: var(--naranja); }
+        .content { padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #fafafa; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        label { font-size: 11px; font-weight: bold; color: #444; display: block; margin-bottom: 3px; }
+
+        .table-wrapper { overflow-x: auto; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 4px; text-align: center; }
+        th { background: #f2f2f2; }
+
+        #seccion-firmas { padding: 15px; background: white; border-top: 5px solid var(--rojo); margin-top: 10px; display: block !important; }
+        
+        .sig-container { margin-bottom: 20px; width: 100%; }
+        .sig-box { position: relative; border: 2px solid #333; height: 180px; background: #fff; width: 100%; border-radius: 8px; touch-action: none; }
+        canvas { width: 100% !important; height: 100% !important; display: block; }
+        .btn-clear { position: absolute; top: 5px; right: 5px; background: var(--rojo); color: white; border: none; padding: 6px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; z-index: 10; }
+
+        .btn-plus { background: var(--verde); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; font-weight: bold; cursor: pointer; font-size: 20px; }
+        .btn-main { padding: 18px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-top: 10px; }
+        .list-area { background: #fff; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; font-size: 13px; }
+
+        .pdf-section { page-break-inside: avoid; margin-bottom: 15px; display: block !important; }
+        .page-break { page-break-before: always; }
+        .nota-legal { font-size: 8px; color: #777; text-align: justify; margin-top: 20px; line-height: 1.2; border-top: 1px solid #eee; padding-top: 10px; }
+
+/* --- ESTILOS ACTUALIZADOS PARA EVIDENCIA FOTOGRÁFICA --- */
+        .foto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px; }
+        
+        /* Estilo para la previsualización en la WEB (mantenemos altura fija para que se vea ordenado al llenar) */
+        .foto-item { position: relative; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; background: #eee; height: 150px; }
+        .foto-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        
+        .btn-del-foto { position: absolute; top: 5px; right: 5px; background: rgba(211, 47, 47, 0.8); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-weight: bold; font-size: 14px; z-index: 5; }
+        .btn-add-foto { background: var(--azul); color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; text-align: center; }
+
+        /* --- AJUSTE CLAVE PARA EL PDF (Misma proporción) --- */
+        /* Usamos flexbox en lugar de grid para un mejor control de saltos de página con html2pdf */
+        .pdf-foto-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: center; }
+        
+        .pdf-foto-item { 
+            width: 45%; /* Aproximadamente 2 fotos por fila */
+            border: 1px solid #eee; 
+            border-radius: 5px; 
+            overflow: hidden; 
+            page-break-inside: avoid; /* Evita que una foto se corte entre dos páginas */
+            margin-bottom: 10px;
+        }
+        
+        /* Esta es la regla mágica: ancho total del contenedor, altura automática según la foto */
+        .pdf-foto-item img { 
+            width: 100%; 
+            height: auto; /* Respeta la proporción original */
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="frap-form">
+    <div id="pdf-header">
+        <table class="h-table">
+            <tr>
+                <td style="width:20%"><img id="logo1" width="70"></td>
+                <td>
+                    <h2 style="margin:0; color:var(--rojo);">AMBULANCIAS SANTA CRUZ</h2>
+                    <p style="margin:2px; font-size:12px; font-weight:bold;">FORMATO DE REGISTRO DE ACCIÓN PREHOSPITALARIA</p>
+                    <p style="margin:0; font-size:10px;">Atención Prehospitalaria - Unidad Motorizada - Motoambulancias</p>
+		    <p style="margin:0; font-size:10px;">FRAP DIGITAL V.1.1.2</p>
+                </td>
+                <td style="width:20%"><img id="logo2" width="70"></td>
+            </tr>
+        </table>
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:10px; background:#f0f0f0; padding:8px; border:1px solid #ccc;">
+            <span>FOLIO: <b id="pdf-fol" style="color:red;"></b></span>
+            <span>FECHA: <b id="pdf-fec"></b></span>
+        </div>
+    </div>
+
+    <div class="titulo-principal no-pdf">FRAP DIGITAL v3.2</div>
+    
+    <div class="no-pdf" style="padding:10px; background:#fff; display:flex; justify-content:space-between; border-bottom:1px solid #ddd;">
+        <span>Folio: <b id="web-fol" style="color:red;">---</b></span>
+        <span>Fecha: <b id="web-fec">--/--/----</b></span>
+    </div>
+
+    <details open><summary>1. DATOS DE LA UNIDAD Y TIEMPOS</summary><div class="content"><div class="grid"><div><label>Unidad</label><input type="text" data-label="Unidad" placeholder="Eco. No."></div><div><label>Placas</label><input type="text" data-label="Placas" placeholder="Placa"></div><div><label>Operador</label><input type="text" data-label="Operador" placeholder="Nombre"></div><div><label>Tripulación</label><input type="text" data-label="Tripulación" placeholder="Nombre"></div></div><div class="grid"><div><label>Despacho</label><input type="time" data-label="T. Despacho"></div><div><label>Arribo</label><input type="time" data-label="T. Arribo"></div><div><label>Traslado</label><input type="time" data-label="T. Traslado"></div><div><label>Fin</label><input type="time" data-label="T. Fin"></div></div></div></details>
+    
+    <details><summary>2. DATOS DEL SERVICIO Y UBICACIÓN</summary><div class="content"><div class="grid"><div><label>Tipo Servicio</label><select data-label="Tipo"><option>Urgencia</option><option>Evento</option><option>Apoyo</option></select></div><div><label>Cliente</label><input type="text" data-label="Cliente"></div></div><label>Ubicación</label><input type="text" data-label="Dirección"><div style="display:flex; gap:10px; align-items: flex-end;"><div style="flex:1"><label>Coordenadas</label><input type="text" id="gps_input" data-label="GPS" readonly></div><button type="button" class="no-pdf" onclick="getGPS()" style="background:var(--azul); color:white; border:none; padding:12px; border-radius:4px;">📍 GPS</button></div><div class="grid"><div><label>Lugar</label><select data-label="Lugar"><option value="Vía Pública">Vía Pública</option><option value="Domicilio">Domicilio</option><option value="Establecimiento">Establecimiento</option><option value="Hospital">Hospital</option></select></div><div><label>Folio aseguradora/cliente (Siniestro)</label><input type="text" data-label="Folio Aseguradora"></div></div></div></details>
+    
+    <details><summary>3. DATOS DEL PACIENTE</summary><div class="content"><label>Nombre</label><input type="text" id="p_nom" data-label="Paciente"><div class="grid"><div><label>Edad</label><input type="text" data-label="Edad"></div><div><label>Género</label><select data-label="Género"><option>Masculino</option><option>Femenino</option></select></div><div><label>Contacto (Teléfono)</label><input type="text" data-label="Contacto"></div></div><label>Domicilio (Calle, No., Col., Mpl., Edo., C.P.)</label><input type="text" data-label="Domicilio"><div class="grid"><div><label>Derechohabiencia</label><select data-label="Derechohabiencia"><option value="IMSS">IMSS</option><option value="ISSSTE">ISSSTE</option><option value="IMSS Bienestar">IMSS Bienestar</option><option value="Privado">Privado</option><option value="Sin Seguridad Social">Sin Seguridad Social</option><option value="Fuerzas Armadas">Fuerzas Armadas</option></select></div><div><label>Situación</label><select data-label="Situación"><option value="Asegurado">Asegurado</option><option value="Tercero">Tercero</option><option value="Membresia">Membresia</option><option value="Otro">Otro</option><option value="No aplica">No aplica</option></select></div></div><label>Antecedentes</label><textarea data-label="Antecedentes" rows="2"></textarea></div></details>
+    
+    <details><summary>4. EXPLORACIÓN FÍSICA</summary><div class="content"><div><label>Naturaleza del servicio</label><select data-label="Naturaleza del servicio"><option value="Trauma">Trauma</option><option value="Clínico">Clínico</option><option value="Evento">Evento</option><option value="Maniobra Ascenso/Descenso">Maniobra Ascenso/Descenso</option><option value="Otro">Otro</option></select></div><div><label>Descripción del motivo del servicio (Naturaleza Enfermedad/Lesión)</label><textarea data-label="Motivo del servicio" rows="2"></textarea></div><div class="grid"><div><label>Pupilas</label><select data-label="Pupilas"><option>Isocóricas</option><option>Anisocóricas</option><option>Midriáticas</option><option>Mióticas</option></select></div><div><label>Estado Piel</label><select data-label="Piel"><option>Normal</option><option>Pálida</option><option>Cianótica</option><option>Diaforética</option></select></div></div><div class="grid"><div><label>Auscultación</label><input type="text" data-label="Auscultación" placeholder="Ingresar texto"></div><div><label>Ventilación</label><select data-label="Ventilación"><option>Eupneica</option><option>Taquipnea</option><option>Bradipnea</option><option>Apnea</option></select></div></div><label style="color:var(--azul); font-weight:bold; margin-top:5px;">Describe zona del cuerpo que presenta lesión o hallazgo:</label><div id="h_lista" class="list-area" data-label="Hallazgos"></div><div class="no-pdf grid"><input type="text" id="h_z" placeholder="Zona"><input type="text" id="h_d" placeholder="Desc."><button type="button" class="btn-plus" onclick="addHallazgo()">+</button></div><label>Síntomas</label><div id="sin_lista" class="list-area" data-label="Síntomas"></div><div class="no-pdf grid"><input type="text" id="sin_i" placeholder="Sínoma..."><button type="button" class="btn-plus" onclick="addSintoma()">+</button></div></div></details>
+    
+    <details><summary>5. SIGNOS VITALES</summary><div class="content"><div class="table-wrapper"><table><thead><tr><th>Hora</th><th>FC</th><th>FV</th><th>TA</th><th>SpO2</th><th>Temp</th><th>Glsg</th><th>AVDI</th></tr></thead><tbody id="s_body"></tbody></table></div><div class="no-pdf grid" style="background:#eee; padding:5px;"><input type="time" id="s_h" title="Hora"><input type="text" id="s_fc" placeholder="FC"><input type="text" id="s_fv" placeholder="FV"><input type="text" id="s_ta" placeholder="TA"><input type="text" id="s_sp" placeholder="SpO2"><input type="text" id="s_temp" placeholder="Temp"><input type="text" id="s_g" placeholder="Glsg"><select id="s_avdi"><option value="Alerta">Alerta</option><option value="Verbal">Verbal</option><option value="Dolor">Dolor</option><option value="Inconsciente">Inconsciente</option></select><button type="button" class="btn-plus" onclick="addSigno()">+</button></div><label style="margin-top:10px;">Prioridad del Paciente</label><select data-label="Prioridad"><option value="Verde/Tercera">Verde / Tercera</option><option value="Amarillo/Segunda">Amarillo / Segunda</option><option value="Roja/Primera">Roja / Primera</option><option value="Negra/Fallecido">Negra / Fallecido</option></select></div></details>
+    
+    <details><summary>6. TRATAMIENTO Y MEDICAMENTOS</summary><div class="content"><label>Tratamientos</label><div id="t_lista" class="list-area" data-label="Tratamientos"></div><div class="no-pdf grid"><input type="text" id="t_i" placeholder="Acción..."><button type="button" class="btn-plus" onclick="addTrat()">+</button></div><label>Medicamentos</label><div id="m_lista" class="list-area" data-label="Medicamentos"></div><div class="no-pdf grid"><input type="text" id="m_i" placeholder="Medicamento"><button type="button" class="btn-plus" onclick="addMed()">+</button></div><label>Recomendaciones</label><textarea data-label="Recomendaciones" rows="2"></textarea></div></details>
+
+    <details><summary>7. TRASLADO Y REGULACIÓN</summary><div class="content"><div class="grid"><div><label>¿Amerita traslado?</label><select data-label="Amerita Traslado"><option value="SI">SI</option><option value="NO">NO</option></select></div><div><label>¿Se traslada?</label><select data-label="Se traslada"><option value="SI">SI</option><option value="NO">NO</option></select></div></div><div><label>Ambulancia que traslada (Razón social, Eco, Placas, Responsable)</label><input type="text" data-label="Ambulancia Traslado" placeholder="Ej: Santa Cruz, Eco-01, ABC-123, Juan Pérez"></div><div class="grid"><div><label>Folio de Regulación con CRUM</label><input type="text" data-label="Folio CRUM" placeholder="Ingresar folio"></div><div><label>Hospital al que se traslada</label><input type="text" data-label="Hospital Destino" placeholder="Nombre del hospital"></div><div><label>Médico que recibe</label><input type="text" data-label="Médico Receptor" placeholder="Nombre del médico"></div></div></div></details>
+
+    <details><summary>8. VEHÍCULOS Y ADICIONALES</summary><div class="content"><label>Vehículos involucrados</label><div id="v_lista" class="list-area" data-label="Vehículos involucrados"></div><div class="no-pdf grid"><input type="text" id="v_i" placeholder="Detalles del vehículo..."><button type="button" class="btn-plus" onclick="addVehiculo()">+</button></div><div class="grid"><div><label>Pertenencias entregadas</label><input type="text" data-label="Pertenencias entregadas"></div><div><label>Autoridad presente</label><input type="text" data-label="Autoridad presente"></div><div><label>Ajustador</label><input type="text" data-label="Ajustador"></div></div></div></details>
+
+    <details class="page-break"><summary>10. EVIDENCIA FOTOGRÁFICA</summary>
+        <div class="content">
+            <label class="no-pdf">Añadir Fotos (Cámara o Galería)</label>
+            <input type="file" id="foto_input" accept="image/*" capture="environment" style="display:none;" onchange="procesarFoto(this)">
+            
+            <button type="button" class="no-pdf btn-add-foto" onclick="document.getElementById('foto_input').click()">📷 TOMAR / SUBIR FOTO</button>
+            
+            <div id="evidencia_lista" class="foto-grid" data-label="Evidencia Fotográfica">
+                </div>
+            
+            <p style="font-size:10px; color:#777; margin-top:5px;" class="no-pdf">Nota: Intente que las fotos sean nítidas y relevantes para el servicio.</p>
+        </div>
+    </details>
+
+    <div id="seccion-firmas" class="page-break">
+        <h3 style="margin:0 0 15px 0; color:var(--rojo); border-bottom:1px solid #eee;">9. CIERRE Y FIRMAS</h3>
+        
+        <div class="sig-container pdf-section">
+            <label>Paramédico</label>
+            <div class="sig-box">
+                <button type="button" class="btn-clear no-pdf" onclick="pads.pa.clear()">Limpiar</button>
+                <canvas id="sig-pa"></canvas>
+            </div>
+            <input type="text" data-label="Nombre Paramédico" placeholder="Nombre">
+        </div>
+
+        <div class="sig-container pdf-section">
+            <label>Paciente / Familiar</label>
+            <div class="sig-box">
+                <button type="button" class="btn-clear no-pdf" onclick="pads.pc.clear()">Limpiar</button>
+                <canvas id="sig-pc"></canvas>
+            </div>
+        </div>
+
+        <div class="sig-container pdf-section">
+            <label>Ajustador / Autoridad</label>
+            <div class="sig-box">
+                <button type="button" class="btn-clear no-pdf" onclick="pads.aj.clear()">Limpiar</button>
+                <canvas id="sig-aj"></canvas>
+            </div>
+            <input type="text" data-label="Nombre Ajustador" placeholder="Nombre/Folio">
+        </div>
+
+        <div class="pdf-section">
+            <label>Observaciones Finales</label>
+            <textarea data-label="Notas Finales" rows="3"></textarea>
+        </div>
+        <div class="nota-legal">
+            Nota legal: El presente FRAP digital se fundamenta en las normas NOM-004-SSA3-2012 (Expediente Clínico) y NOM-034-SSA3-2013 (Atención Médica Prehospitalaria), las cuales validan el uso de medios electrónicos para el registro de atención médica. Su contenido posee plena validez jurídica conforme al Artículo 89 del Código de Comercio y el Código Civil Federal, garantizando la integridad y trazabilidad de la información. El tratamiento de los datos personales sensibles aquí vertidos se realiza bajo estrictos protocolos de confidencialidad y seguridad, en cumplimiento con la LFPDPPP y la Ley General de Protección de Datos Personales, con el fin exclusivo de asegurar la continuidad de la atención y el cumplimiento de las obligaciones legales del prestador.
+        </div>
+    </div>
+</div>
+
+<div class="no-pdf" style="padding:20px; max-width:850px; margin:auto;">
+    <button class="btn-main" style="background:var(--rojo);" onclick="generarPDF()">💾 GENERAR PDF COMPLETO</button>
+</div>
+
+<script>
+    const pads = {};
+    const fotosBase64 = []; // Array para guardar las fotos internamente
+
+    function resizeCanvas() {
+        ['pa', 'pc', 'aj'].forEach(id => {
+            const canvas = document.getElementById('sig-' + id);
+            if (canvas) {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                if (pads[id]) pads[id].clear(); // Limpia para evitar distorsión al rotar
+            }
+        });
+    }
+
+    window.onload = () => {
+        const n = localStorage.getItem('frap_n') || 1;
+        const fechaActual = new Date();
+        const hoy = fechaActual.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        document.getElementById('pdf-fol').innerText = "MA-" + String(n).padStart(5, '0');
+        document.getElementById('web-fol').innerText = document.getElementById('pdf-fol').innerText;
+        document.getElementById('pdf-fec').innerText = hoy;
+        document.getElementById('web-fec').innerText = hoy;
+
+        ['pa', 'pc', 'aj'].forEach(id => {
+            const canvas = document.getElementById('sig-' + id);
+            pads[id] = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)' });
+        });
+        
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+    };
+
+    function getGPS() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(p => {
+                document.getElementById('gps_input').value = p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
+            }, () => alert("Error GPS"));
+        }
+    }
+
+    // --- FUNCIONES PARA EVIDENCIA FOTOGRÁFICA ---
+
+    function procesarFoto(input) {
+        if (input.files && input.files[0]) {
+            const lector = new FileReader();
+            
+            lector.onload = function(e) {
+                const base64 = e.target.result;
+                const idFoto = Date.now(); // ID único para borrar
+                
+                // Guardar internamente
+                fotosBase64.push({ id: idFoto, data: base64 });
+                
+                // Crear previsualización en la web
+                const contenedor = document.getElementById('evidencia_lista');
+                const divFoto = document.createElement('div');
+                divFoto.className = 'foto-item';
+                divFoto.id = `foto-${idFoto}`;
+                
+                divFoto.innerHTML = `
+                    <button type="button" class="btn-del-foto" onclick="borrarFoto(${idFoto})">×</button>
+                    <img src="${base64}">
+                `;
+                
+                contenedor.appendChild(divFoto);
+                input.value = ""; // Limpiar input para permitir subir la misma foto si se desea
+            };
+            
+            lector.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function borrarFoto(id) {
+        // Borrar del array
+        const index = fotosBase64.findIndex(f => f.id === id);
+        if (index > -1) fotosBase64.splice(index, 1);
+        
+        // Borrar del DOM
+        const el = document.getElementById(`foto-${id}`);
+        if(el) el.remove();
+    }
+
+    // --- FUNCIONES DE AGREGAR LISTAS (IGUALES) ---
+    function addSigno() { 
+        const h = document.getElementById('s_h').value; 
+        if(h) {
+            const row = `<tr><td>${h}</td><td>${document.getElementById('s_fc').value}</td><td>${document.getElementById('s_fv').value}</td><td>${document.getElementById('s_ta').value}</td><td>${document.getElementById('s_sp').value}</td><td>${document.getElementById('s_temp').value}</td><td>${document.getElementById('s_g').value}</td><td>${document.getElementById('s_avdi').value}</td></tr>`;
+            document.getElementById('s_body').innerHTML += row;
+            ['s_h','s_fc','s_fv','s_ta','s_sp','s_temp','s_g'].forEach(id => document.getElementById(id).value = "");
+        }
+    }
+    function addHallazgo() { 
+        const z = document.getElementById('h_z').value; 
+        if(z) {
+            document.getElementById('h_lista').innerHTML += `• ${z}: ${document.getElementById('h_d').value}<br>`;
+            document.getElementById('h_z').value = ""; document.getElementById('h_d').value = "";
+        }
+    }
+    function addSintoma() {
+        const v = document.getElementById('sin_i').value;
+        if(v) {
+            document.getElementById('sin_lista').innerHTML += `• ${v}<br>`;
+            document.getElementById('sin_i').value = "";
+        }
+    }
+    function addTrat() { 
+        const v = document.getElementById('t_i').value; 
+        if(v) {
+            document.getElementById('t_lista').innerHTML += `• ${v}<br>`;
+            document.getElementById('t_i').value = "";
+        }
+    }
+    function addMed() { 
+        const v = document.getElementById('m_i').value; 
+        if(v) {
+            document.getElementById('m_lista').innerHTML += `• ${v}<br>`;
+            document.getElementById('m_i').value = "";
+        }
+    }
+    function addVehiculo() {
+        const v = document.getElementById('v_i').value;
+        if(v) {
+            document.getElementById('v_lista').innerHTML += `• ${v}<br>`;
+            document.getElementById('v_i').value = "";
+        }
+    }
+
+    // --- GENERAR PDF MODIFICADO ---
+
+async function generarPDF() {
+        const original = document.getElementById('frap-form');
+        const clon = original.cloneNode(true);
+        
+        // 1. EXTRAER VALORES PRIMERO (La clave para evitar el desfase)
+        // Tomamos absolutamente todos los campos de ambos formularios al mismo tiempo
+        const inputsOriginales = original.querySelectorAll('input, select, textarea');
+        const inputsClonados = clon.querySelectorAll('input, select, textarea');
+
+        inputsClonados.forEach((el, index) => {
+            const originalEl = inputsOriginales[index];
+            
+            // Ignoramos el botón oculto de las fotos
+            if (originalEl.type === "file") return;
+
+            let valorMostrar = "---";
+            
+            // Si es un menú desplegable, extraemos el texto de la opción seleccionada
+            if (originalEl.tagName === "SELECT") {
+                if (originalEl.selectedIndex >= 0) {
+                    valorMostrar = originalEl.options[originalEl.selectedIndex].text;
+                }
+            } else {
+                valorMostrar = originalEl.value || "---";
+            }
+            
+            // Solo convertimos los campos que son parte del reporte final (los que tienen data-label)
+            const etiqueta = el.getAttribute('data-label');
+            if (etiqueta) {
+                const div = document.createElement('div');
+                div.style.fontSize = "11px"; 
+                div.style.marginBottom = "4px";
+                div.style.borderBottom = "1px solid #f9f9f9";
+                div.innerHTML = `<b>${etiqueta}:</b> ${valorMostrar}`;
+                el.replaceWith(div);
+            }
+        });
+
+        // 2. AHORA SÍ, BORRAMOS LA INTERFAZ WEB DEL CLON
+        clon.querySelectorAll('.no-pdf, button, input[type="file"]').forEach(e => e.remove());
+
+        // 3. PROCESAR FIRMAS
+        ['pa', 'pc', 'aj'].forEach(id => {
+            const wrapper = clon.querySelector(`#sig-${id}`).parentElement;
+            wrapper.innerHTML = '';
+            if (!pads[id].isEmpty()) {
+                const img = document.createElement('img');
+                img.src = pads[id].toDataURL("image/png");
+                img.style.width = "100%"; img.style.height = "130px";
+                img.style.display = "block"; img.style.margin = "auto";
+                wrapper.appendChild(img);
+            } else { wrapper.innerHTML = "<p style='text-align:center;color:#ccc; font-size:10px;'>SIN FIRMA</p>"; }
+        });
+
+	// 4. PROCESAR EVIDENCIA FOTOGRÁFICA (Actualizado para respetar proporción)
+        const contenedorFotosClon = clon.querySelector('#evidencia_lista');
+        if (contenedorFotosClon) {
+            contenedorFotosClon.innerHTML = ''; // Limpiar previsualizaciones web
+            
+            if (fotosBase64.length > 0) {
+                // Cambiamos la clase a 'pdf-foto-container' (Flexbox)
+                contenedorFotosClon.className = 'pdf-foto-container';
+                
+                fotosBase64.forEach(foto => {
+                    const divF = document.createElement('div');
+                    divF.className = 'pdf-foto-item';
+                    // La imagen dentro ya tiene width: 100% y height: auto en el CSS
+                    divF.innerHTML = `<img src="${foto.data}">`;
+                    contenedorFotosClon.appendChild(divF);
+                });
+            } else {
+                contenedorFotosClon.innerHTML = "<p style='text-align:center; color:#999; font-size:12px; width: 100%; margin: 20px 0;'>No se adjuntó evidencia fotográfica.</p>";
+            }
+        }
+
+        // 5. DAR FORMATO AL DOCUMENTO
+        clon.querySelector('#pdf-header').style.display = 'block';
+        clon.querySelectorAll('details').forEach(d => {
+            const title = d.querySelector('summary').innerText;
+            const content = d.querySelector('.content');
+            const wrap = document.createElement('div');
+            wrap.className = `pdf-section ${d.classList.contains('page-break') ? 'page-break' : ''}`;
+            wrap.innerHTML = `<div style="background:#f4f4f4; padding:5px; font-weight:bold; margin-top:10px; border-left:4px solid orange; font-size:13px;">${title}</div>`;
+            wrap.appendChild(content);
+            d.replaceWith(wrap);
+        });
+
+        // 6. GENERAR EL ARCHIVO
+        const opciones = {
+            margin: [10, 10, 10, 10],
+            filename: `FRAP_${document.getElementById('pdf-fol').innerText}.pdf`,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true, scrollY: 0 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] }
+        };
+
+        html2pdf().set(opciones).from(clon).toPdf().get('pdf').then(function (pdf) {
+            localStorage.setItem('frap_n', parseInt(localStorage.getItem('frap_n') || 1) + 1);
+        }).save();
+    }
+</script>
+
+</body>
+</html>
