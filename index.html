@@ -154,6 +154,7 @@
                 <button type="button" class="btn-clear no-pdf" onclick="pads.pc.clear()">Limpiar</button>
                 <canvas id="sig-pc"></canvas>
             </div>
+			<input type="text" data-label="Nombre/Parentezco" placeholder="Nombre/Folio">
         </div>
 
         <div class="sig-container pdf-section">
@@ -200,7 +201,7 @@
         const n = localStorage.getItem('frap_n') || 1;
         const fechaActual = new Date();
         const hoy = fechaActual.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        document.getElementById('pdf-fol').innerText = "MA-" + String(n).padStart(5, '0');
+        document.getElementById('pdf-fol').innerText = "AJTP-" + String(n).padStart(5, '0');
         document.getElementById('web-fol').innerText = document.getElementById('pdf-fol').innerText;
         document.getElementById('pdf-fec').innerText = hoy;
         document.getElementById('web-fec').innerText = hoy;
