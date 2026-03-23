@@ -45,36 +45,16 @@
         .page-break { page-break-before: always; }
         .nota-legal { font-size: 8px; color: #777; text-align: justify; margin-top: 20px; line-height: 1.2; border-top: 1px solid #eee; padding-top: 10px; }
 
-/* --- ESTILOS ACTUALIZADOS PARA EVIDENCIA FOTOGRÁFICA --- */
+        /* --- ESTILOS PARA EVIDENCIA FOTOGRÁFICA --- */
         .foto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px; }
-        
-        /* Estilo para la previsualización en la WEB (mantenemos altura fija para que se vea ordenado al llenar) */
         .foto-item { position: relative; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; background: #eee; height: 150px; }
         .foto-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        
         .btn-del-foto { position: absolute; top: 5px; right: 5px; background: rgba(211, 47, 47, 0.8); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-weight: bold; font-size: 14px; z-index: 5; }
-        .btn-add-foto { background: var(--azul); color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; text-align: center; }
+        .btn-add-foto { display: block; background: var(--azul); color: white; padding: 12px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; text-align: center; box-sizing: border-box; }
 
-        /* --- AJUSTE CLAVE PARA EL PDF (Misma proporción) --- */
-        /* Usamos flexbox en lugar de grid para un mejor control de saltos de página con html2pdf */
         .pdf-foto-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: center; }
-        
-        .pdf-foto-item { 
-            width: 45%; /* Aproximadamente 2 fotos por fila */
-            border: 1px solid #eee; 
-            border-radius: 5px; 
-            overflow: hidden; 
-            page-break-inside: avoid; /* Evita que una foto se corte entre dos páginas */
-            margin-bottom: 10px;
-        }
-        
-        /* Esta es la regla mágica: ancho total del contenedor, altura automática según la foto */
-        .pdf-foto-item img { 
-            width: 100%; 
-            height: auto; /* Respeta la proporción original */
-            display: block;
-        }
-
+        .pdf-foto-item { width: 45%; border: 1px solid #eee; border-radius: 5px; overflow: hidden; page-break-inside: avoid; margin-bottom: 10px; }
+        .pdf-foto-item img { width: 100%; height: auto; display: block; }
     </style>
 </head>
 <body>
@@ -88,7 +68,7 @@
                     <h2 style="margin:0; color:var(--rojo);">AMBULANCIAS SANTA CRUZ</h2>
                     <p style="margin:2px; font-size:12px; font-weight:bold;">FORMATO DE REGISTRO DE ACCIÓN PREHOSPITALARIA</p>
                     <p style="margin:0; font-size:10px;">Atención Prehospitalaria - Unidad Motorizada - Motoambulancias</p>
-		    <p style="margin:0; font-size:10px;">FRAP DIGITAL V.1.1.2</p>
+                    <p style="margin:0; font-size:10px;">FRAP DIGITAL V.1.1.2</p>
                 </td>
                 <td style="width:20%"><img id="logo2" width="70"></td>
             </tr>
@@ -125,9 +105,11 @@
     <details class="page-break"><summary>10. EVIDENCIA FOTOGRÁFICA</summary>
         <div class="content">
             <label class="no-pdf">Añadir Fotos (Cámara o Galería)</label>
-            <input type="file" id="foto_input" accept="image/*" capture="environment" style="display:none;" onchange="procesarFoto(this)">
             
-            <button type="button" class="no-pdf btn-add-foto" onclick="document.getElementById('foto_input').click()">📷 TOMAR / SUBIR FOTO</button>
+            <label class="no-pdf btn-add-foto">
+                📷 TOMAR / SUBIR FOTO
+                <input type="file" id="foto_input" accept="image/*" style="display:none;" onchange="procesarFoto(this)">
+            </label>
             
             <div id="evidencia_lista" class="foto-grid" data-label="Evidencia Fotográfica">
                 </div>
@@ -154,7 +136,7 @@
                 <button type="button" class="btn-clear no-pdf" onclick="pads.pc.clear()">Limpiar</button>
                 <canvas id="sig-pc"></canvas>
             </div>
-			<input type="text" data-label="Paciente / Familiar" placeholder="Nombre/Parentezco">
+            <input type="text" data-label="Paciente / Familiar" placeholder="Nombre/Parentezco">
         </div>
 
         <div class="sig-container pdf-section">
@@ -177,242 +159,236 @@
 </div>
 
 <div class="no-pdf" style="padding:20px; max-width:850px; margin:auto;">
-    <button class="btn-main" style="background:var(--rojo);" onclick="generarPDF()">💾 GENERAR PDF COMPLETO</button>
+    <button class="btn-main" style="background:var(--rojo);" onclick="generarPDF()">💾 GENERAR PDF</button>
 </div>
 
 <script>
-    const pads = {};
-    const fotosBase64 = []; // Array para guardar las fotos internamente
+const pads = {};
+const fotosBase64 = [];
+// CORRECCIÓN 2: Iniciamos en 0 para forzar a que el lienzo se dimensione correctamente la primera vez
+let anchoPantalla = 0; 
 
-    function resizeCanvas() {
-        ['pa', 'pc', 'aj'].forEach(id => {
-            const canvas = document.getElementById('sig-' + id);
-            if (canvas) {
-                const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                canvas.width = canvas.offsetWidth * ratio;
-                canvas.height = canvas.offsetHeight * ratio;
-                canvas.getContext("2d").scale(ratio, ratio);
-                if (pads[id]) pads[id].clear(); // Limpia para evitar distorsión al rotar
+function resizeCanvas() {
+    if (window.innerWidth === anchoPantalla) return;
+    anchoPantalla = window.innerWidth;
+
+    ['pa', 'pc', 'aj'].forEach(id => {
+        const canvas = document.getElementById('sig-' + id);
+        if (canvas) {
+            const datosFirma = pads[id] && !pads[id].isEmpty() ? pads[id].toData() : null;
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            
+            if (pads[id]) {
+                pads[id].clear();
+                if (datosFirma) {
+                    pads[id].fromData(datosFirma);
+                }
             }
-        });
-    }
-
-    window.onload = () => {
-        const n = localStorage.getItem('frap_n') || 1;
-        const fechaActual = new Date();
-        const hoy = fechaActual.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        document.getElementById('pdf-fol').innerText = "AJTP-" + String(n).padStart(5, '0');
-        document.getElementById('web-fol').innerText = document.getElementById('pdf-fol').innerText;
-        document.getElementById('pdf-fec').innerText = hoy;
-        document.getElementById('web-fec').innerText = hoy;
-
-        ['pa', 'pc', 'aj'].forEach(id => {
-            const canvas = document.getElementById('sig-' + id);
-            pads[id] = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)' });
-        });
-        
-        resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
-    };
-
-    function getGPS() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(p => {
-                document.getElementById('gps_input').value = p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
-            }, () => alert("Error GPS"));
         }
-    }
+    });
+}
 
-    // --- FUNCIONES PARA EVIDENCIA FOTOGRÁFICA ---
+window.onload = () => {
+    const n = localStorage.getItem('frap_n') || 1;
+    const hoy = new Date().toLocaleDateString('es-MX');
+    
+    document.getElementById('pdf-fol').innerText = "AJTP-" + String(n).padStart(5, '0');
+    document.getElementById('web-fol').innerText = document.getElementById('pdf-fol').innerText;
+    document.getElementById('pdf-fec').innerText = hoy;
+    document.getElementById('web-fec').innerText = hoy;
 
-    function procesarFoto(input) {
-        if (input.files && input.files[0]) {
-            const lector = new FileReader();
-            
-            lector.onload = function(e) {
-                const base64 = e.target.result;
-                const idFoto = Date.now(); // ID único para borrar
-                
-                // Guardar internamente
-                fotosBase64.push({ id: idFoto, data: base64 });
-                
-                // Crear previsualización en la web
-                const contenedor = document.getElementById('evidencia_lista');
-                const divFoto = document.createElement('div');
-                divFoto.className = 'foto-item';
-                divFoto.id = `foto-${idFoto}`;
-                
-                divFoto.innerHTML = `
-                    <button type="button" class="btn-del-foto" onclick="borrarFoto(${idFoto})">×</button>
-                    <img src="${base64}">
-                `;
-                
-                contenedor.appendChild(divFoto);
-                input.value = ""; // Limpiar input para permitir subir la misma foto si se desea
-            };
-            
-            lector.readAsDataURL(input.files[0]);
+    ['pa', 'pc', 'aj'].forEach(id => {
+        const canvas = document.getElementById('sig-' + id);
+        if (canvas) {
+            pads[id] = new SignaturePad(canvas, { 
+                backgroundColor: 'rgb(255,255,255)',
+                penColor: 'rgb(0, 0, 0)' 
+            });
         }
-    }
+    });
 
-    function borrarFoto(id) {
-        // Borrar del array
-        const index = fotosBase64.findIndex(f => f.id === id);
-        if (index > -1) fotosBase64.splice(index, 1);
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+};
+
+function getGPS() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(p => {
+            document.getElementById('gps_input').value = p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
+        }, () => alert("Error GPS"));
+    }
+}
+
+function procesarFoto(input) {
+    if (input.files && input.files[0]) {
+        const lector = new FileReader();
         
-        // Borrar del DOM
-        const el = document.getElementById(`foto-${id}`);
-        if(el) el.remove();
+        lector.onload = function(e) {
+            const base64 = e.target.result;
+            const idFoto = Date.now(); 
+            
+            fotosBase64.push({ id: idFoto, data: base64 });
+            
+            const contenedor = document.getElementById('evidencia_lista');
+            const divFoto = document.createElement('div');
+            divFoto.className = 'foto-item';
+            divFoto.id = `foto-${idFoto}`;
+            
+            divFoto.innerHTML = `
+                <button type="button" class="btn-del-foto" onclick="borrarFoto(${idFoto})">×</button>
+                <img src="${base64}">
+            `;
+            
+            contenedor.appendChild(divFoto);
+            input.value = ""; 
+        };
+        
+        lector.readAsDataURL(input.files[0]);
     }
+}
 
-    // --- FUNCIONES DE AGREGAR LISTAS (IGUALES) ---
-    function addSigno() { 
-        const h = document.getElementById('s_h').value; 
-        if(h) {
-            const row = `<tr><td>${h}</td><td>${document.getElementById('s_fc').value}</td><td>${document.getElementById('s_fv').value}</td><td>${document.getElementById('s_ta').value}</td><td>${document.getElementById('s_sp').value}</td><td>${document.getElementById('s_temp').value}</td><td>${document.getElementById('s_g').value}</td><td>${document.getElementById('s_avdi').value}</td></tr>`;
-            document.getElementById('s_body').innerHTML += row;
-            ['s_h','s_fc','s_fv','s_ta','s_sp','s_temp','s_g'].forEach(id => document.getElementById(id).value = "");
-        }
-    }
-    function addHallazgo() { 
-        const z = document.getElementById('h_z').value; 
-        if(z) {
-            document.getElementById('h_lista').innerHTML += `• ${z}: ${document.getElementById('h_d').value}<br>`;
-            document.getElementById('h_z').value = ""; document.getElementById('h_d').value = "";
-        }
-    }
-    function addSintoma() {
-        const v = document.getElementById('sin_i').value;
-        if(v) {
-            document.getElementById('sin_lista').innerHTML += `• ${v}<br>`;
-            document.getElementById('sin_i').value = "";
-        }
-    }
-    function addTrat() { 
-        const v = document.getElementById('t_i').value; 
-        if(v) {
-            document.getElementById('t_lista').innerHTML += `• ${v}<br>`;
-            document.getElementById('t_i').value = "";
-        }
-    }
-    function addMed() { 
-        const v = document.getElementById('m_i').value; 
-        if(v) {
-            document.getElementById('m_lista').innerHTML += `• ${v}<br>`;
-            document.getElementById('m_i').value = "";
-        }
-    }
-    function addVehiculo() {
-        const v = document.getElementById('v_i').value;
-        if(v) {
-            document.getElementById('v_lista').innerHTML += `• ${v}<br>`;
-            document.getElementById('v_i').value = "";
-        }
-    }
+function borrarFoto(id) {
+    const index = fotosBase64.findIndex(f => f.id === id);
+    if (index > -1) fotosBase64.splice(index, 1);
+    const el = document.getElementById(`foto-${id}`);
+    if(el) el.remove();
+}
 
-    // --- GENERAR PDF MODIFICADO ---
+function addSigno() { 
+    const h = document.getElementById('s_h').value; 
+    if(h) {
+        const row = `<tr><td>${h}</td><td>${document.getElementById('s_fc').value}</td><td>${document.getElementById('s_fv').value}</td><td>${document.getElementById('s_ta').value}</td><td>${document.getElementById('s_sp').value}</td><td>${document.getElementById('s_temp').value}</td><td>${document.getElementById('s_g').value}</td><td>${document.getElementById('s_avdi').value}</td></tr>`;
+        document.getElementById('s_body').innerHTML += row;
+        ['s_h','s_fc','s_fv','s_ta','s_sp','s_temp','s_g'].forEach(id => document.getElementById(id).value = "");
+    }
+}
+function addHallazgo() { 
+    const z = document.getElementById('h_z').value; 
+    if(z) {
+        document.getElementById('h_lista').innerHTML += `• ${z}: ${document.getElementById('h_d').value}<br>`;
+        document.getElementById('h_z').value = ""; document.getElementById('h_d').value = "";
+    }
+}
+function addSintoma() {
+    const v = document.getElementById('sin_i').value;
+    if(v) {
+        document.getElementById('sin_lista').innerHTML += `• ${v}<br>`;
+        document.getElementById('sin_i').value = "";
+    }
+}
+function addTrat() { 
+    const v = document.getElementById('t_i').value; 
+    if(v) {
+        document.getElementById('t_lista').innerHTML += `• ${v}<br>`;
+        document.getElementById('t_i').value = "";
+    }
+}
+function addMed() { 
+    const v = document.getElementById('m_i').value; 
+    if(v) {
+        document.getElementById('m_lista').innerHTML += `• ${v}<br>`;
+        document.getElementById('m_i').value = "";
+    }
+}
+function addVehiculo() {
+    const v = document.getElementById('v_i').value;
+    if(v) {
+        document.getElementById('v_lista').innerHTML += `• ${v}<br>`;
+        document.getElementById('v_i').value = "";
+    }
+}
 
 async function generarPDF() {
-        const original = document.getElementById('frap-form');
-        const clon = original.cloneNode(true);
+    const original = document.getElementById('frap-form');
+    const clon = original.cloneNode(true);
+    
+    const inputsOriginales = original.querySelectorAll('input, select, textarea');
+    const inputsClonados = clon.querySelectorAll('input, select, textarea');
+
+    inputsClonados.forEach((el, index) => {
+        const originalEl = inputsOriginales[index];
+        if (originalEl.type === "file") return;
+
+        let valorMostrar = "---";
         
-        // 1. EXTRAER VALORES PRIMERO (La clave para evitar el desfase)
-        // Tomamos absolutamente todos los campos de ambos formularios al mismo tiempo
-        const inputsOriginales = original.querySelectorAll('input, select, textarea');
-        const inputsClonados = clon.querySelectorAll('input, select, textarea');
-
-        inputsClonados.forEach((el, index) => {
-            const originalEl = inputsOriginales[index];
-            
-            // Ignoramos el botón oculto de las fotos
-            if (originalEl.type === "file") return;
-
-            let valorMostrar = "---";
-            
-            // Si es un menú desplegable, extraemos el texto de la opción seleccionada
-            if (originalEl.tagName === "SELECT") {
-                if (originalEl.selectedIndex >= 0) {
-                    valorMostrar = originalEl.options[originalEl.selectedIndex].text;
-                }
-            } else {
-                valorMostrar = originalEl.value || "---";
+        if (originalEl.tagName === "SELECT") {
+            if (originalEl.selectedIndex >= 0) {
+                valorMostrar = originalEl.options[originalEl.selectedIndex].text;
             }
-            
-            // Solo convertimos los campos que son parte del reporte final (los que tienen data-label)
-            const etiqueta = el.getAttribute('data-label');
-            if (etiqueta) {
-                const div = document.createElement('div');
-                div.style.fontSize = "11px"; 
-                div.style.marginBottom = "4px";
-                div.style.borderBottom = "1px solid #f9f9f9";
-                div.innerHTML = `<b>${etiqueta}:</b> ${valorMostrar}`;
-                el.replaceWith(div);
-            }
-        });
-
-        // 2. AHORA SÍ, BORRAMOS LA INTERFAZ WEB DEL CLON
-        clon.querySelectorAll('.no-pdf, button, input[type="file"]').forEach(e => e.remove());
-
-        // 3. PROCESAR FIRMAS
-        ['pa', 'pc', 'aj'].forEach(id => {
-            const wrapper = clon.querySelector(`#sig-${id}`).parentElement;
-            wrapper.innerHTML = '';
-            if (!pads[id].isEmpty()) {
-                const img = document.createElement('img');
-                img.src = pads[id].toDataURL("image/png");
-                img.style.width = "100%"; img.style.height = "130px";
-                img.style.display = "block"; img.style.margin = "auto";
-                wrapper.appendChild(img);
-            } else { wrapper.innerHTML = "<p style='text-align:center;color:#ccc; font-size:10px;'>SIN FIRMA</p>"; }
-        });
-
-	// 4. PROCESAR EVIDENCIA FOTOGRÁFICA (Actualizado para respetar proporción)
-        const contenedorFotosClon = clon.querySelector('#evidencia_lista');
-        if (contenedorFotosClon) {
-            contenedorFotosClon.innerHTML = ''; // Limpiar previsualizaciones web
-            
-            if (fotosBase64.length > 0) {
-                // Cambiamos la clase a 'pdf-foto-container' (Flexbox)
-                contenedorFotosClon.className = 'pdf-foto-container';
-                
-                fotosBase64.forEach(foto => {
-                    const divF = document.createElement('div');
-                    divF.className = 'pdf-foto-item';
-                    // La imagen dentro ya tiene width: 100% y height: auto en el CSS
-                    divF.innerHTML = `<img src="${foto.data}">`;
-                    contenedorFotosClon.appendChild(divF);
-                });
-            } else {
-                contenedorFotosClon.innerHTML = "<p style='text-align:center; color:#999; font-size:12px; width: 100%; margin: 20px 0;'>No se adjuntó evidencia fotográfica.</p>";
-            }
+        } else {
+            valorMostrar = originalEl.value || "---";
         }
+        
+        const etiqueta = el.getAttribute('data-label');
+        if (etiqueta) {
+            const div = document.createElement('div');
+            div.style.fontSize = "11px"; 
+            div.style.marginBottom = "4px";
+            div.style.borderBottom = "1px solid #f9f9f9";
+            div.innerHTML = `<b>${etiqueta}:</b> ${valorMostrar}`;
+            el.replaceWith(div);
+        }
+    });
 
-        // 5. DAR FORMATO AL DOCUMENTO
-        clon.querySelector('#pdf-header').style.display = 'block';
-        clon.querySelectorAll('details').forEach(d => {
-            const title = d.querySelector('summary').innerText;
-            const content = d.querySelector('.content');
-            const wrap = document.createElement('div');
-            wrap.className = `pdf-section ${d.classList.contains('page-break') ? 'page-break' : ''}`;
-            wrap.innerHTML = `<div style="background:#f4f4f4; padding:5px; font-weight:bold; margin-top:10px; border-left:4px solid orange; font-size:13px;">${title}</div>`;
-            wrap.appendChild(content);
-            d.replaceWith(wrap);
-        });
+    clon.querySelectorAll('.no-pdf, button, input[type="file"]').forEach(e => e.remove());
 
-        // 6. GENERAR EL ARCHIVO
-        const opciones = {
-            margin: [10, 10, 10, 10],
-            filename: `FRAP_${document.getElementById('pdf-fol').innerText}.pdf`,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true, scrollY: 0 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
+    ['pa', 'pc', 'aj'].forEach(id => {
+        const wrapper = clon.querySelector(`#sig-${id}`).parentElement;
+        wrapper.innerHTML = '';
+        if (!pads[id].isEmpty()) {
+            const img = document.createElement('img');
+            img.src = pads[id].toDataURL("image/png");
+            img.style.width = "100%"; img.style.height = "130px";
+            img.style.display = "block"; img.style.margin = "auto";
+            wrapper.appendChild(img);
+        } else { wrapper.innerHTML = "<p style='text-align:center;color:#ccc; font-size:10px;'>SIN FIRMA</p>"; }
+    });
 
-        html2pdf().set(opciones).from(clon).toPdf().get('pdf').then(function (pdf) {
-            localStorage.setItem('frap_n', parseInt(localStorage.getItem('frap_n') || 1) + 1);
-        }).save();
+    const contenedorFotosClon = clon.querySelector('#evidencia_lista');
+    if (contenedorFotosClon) {
+        contenedorFotosClon.innerHTML = ''; 
+        
+        if (fotosBase64.length > 0) {
+            contenedorFotosClon.className = 'pdf-foto-container';
+            
+            fotosBase64.forEach(foto => {
+                const divF = document.createElement('div');
+                divF.className = 'pdf-foto-item';
+                divF.innerHTML = `<img src="${foto.data}">`;
+                contenedorFotosClon.appendChild(divF);
+            });
+        } else {
+            contenedorFotosClon.innerHTML = "<p style='text-align:center; color:#999; font-size:12px; width: 100%; margin: 20px 0;'>No se adjuntó evidencia fotográfica.</p>";
+        }
     }
+
+    clon.querySelector('#pdf-header').style.display = 'block';
+    clon.querySelectorAll('details').forEach(d => {
+        const title = d.querySelector('summary').innerText;
+        const content = d.querySelector('.content');
+        const wrap = document.createElement('div');
+        wrap.className = `pdf-section ${d.classList.contains('page-break') ? 'page-break' : ''}`;
+        wrap.innerHTML = `<div style="background:#f4f4f4; padding:5px; font-weight:bold; margin-top:10px; border-left:4px solid orange; font-size:13px;">${title}</div>`;
+        wrap.appendChild(content);
+        d.replaceWith(wrap);
+    });
+
+    const opciones = {
+        margin: [10, 10, 10, 10],
+        filename: `FRAP_${document.getElementById('pdf-fol').innerText}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    html2pdf().set(opciones).from(clon).toPdf().get('pdf').then(function (pdf) {
+        localStorage.setItem('frap_n', parseInt(localStorage.getItem('frap_n') || 1) + 1);
+    }).save();
+}
 </script>
 
 </body>
